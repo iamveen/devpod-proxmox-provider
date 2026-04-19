@@ -10,43 +10,30 @@ var _ Client = (*MockClient)(nil)
 var _ Client = &MockClient{}
 
 // MockClient is a hand-written mock implementing the Client interface.
-// Each method records its calls and returns pre-configured responses.
 type MockClient struct {
-	Version           *VersionResponse
-	VersionErr        error
-	Resources         []Resource
-	ResourcesErr      error
-	StoragePools      []Storage
-	StoragePoolsErr   error
-	Networks          []Network
-	NetworksErr       error
+	Version      *VersionResponse
+	VersionErr   error
+	Resources    []Resource
+	ResourcesErr error
 
-	CloneVMUPID       string
-	CloneVMErr        error
-	ConfigureVMErr    error
-	ResizeDiskErr     error
-	StartVMUPID       string
-	StartVMErr        error
-	StopVMUPID        string
-	StopVMErr         error
-	ShutdownVMUPID    string
-	ShutdownVMErr     error
-	DeleteVMUPID      string
-	DeleteVMErr       error
-	VMStatus          *VMStatus
-	VMStatusErr       error
-	Ifaces            []NetworkInterface
-	IfacesErr         error
-	WaitForTaskErr    error
+	CloneVMUPID    string
+	CloneVMErr     error
+	ConfigureVMErr error
+	ResizeDiskErr  error
+	StartVMUPID    string
+	StartVMErr     error
+	StopVMUPID     string
+	StopVMErr      error
+	ShutdownVMUPID string
+	ShutdownVMErr  error
+	DeleteVMUPID   string
+	DeleteVMErr    error
+	VMStatus       *VMStatus
+	VMStatusErr    error
+	Ifaces         []NetworkInterface
+	IfacesErr      error
+	WaitForTaskErr error
 
-	CreateVMUPID      string
-	CreateVMErr       error
-	ConvertTemplateUPID string
-	ConvertTemplateErr  error
-	DownloadURLUPID     string
-	DownloadURLErr      error
-
-	// Recorded calls for assertions
 	Calls []MockCall
 }
 
@@ -71,16 +58,6 @@ func (m *MockClient) GetVersion(ctx context.Context) (*VersionResponse, error) {
 func (m *MockClient) GetClusterResources(ctx context.Context) ([]Resource, error) {
 	m.record("GetClusterResources")
 	return m.Resources, m.ResourcesErr
-}
-
-func (m *MockClient) GetNodeStorage(ctx context.Context, node string) ([]Storage, error) {
-	m.record("GetNodeStorage", node)
-	return m.StoragePools, m.StoragePoolsErr
-}
-
-func (m *MockClient) GetNodeNetworks(ctx context.Context, node string) ([]Network, error) {
-	m.record("GetNodeNetworks", node)
-	return m.Networks, m.NetworksErr
 }
 
 func (m *MockClient) CloneVM(ctx context.Context, node string, templateID int, req CloneRequest) (string, error) {
@@ -131,21 +108,6 @@ func (m *MockClient) GetNetworkInterfaces(ctx context.Context, node string, vmid
 func (m *MockClient) WaitForTask(ctx context.Context, node, upid string, timeout time.Duration) error {
 	m.record("WaitForTask", node, upid, timeout)
 	return m.WaitForTaskErr
-}
-
-func (m *MockClient) CreateVM(ctx context.Context, node string, req CreateVMRequest) (string, error) {
-	m.record("CreateVM", node, req)
-	return m.CreateVMUPID, m.CreateVMErr
-}
-
-func (m *MockClient) ConvertToTemplate(ctx context.Context, node string, vmid int) (string, error) {
-	m.record("ConvertToTemplate", node, vmid)
-	return m.ConvertTemplateUPID, m.ConvertTemplateErr
-}
-
-func (m *MockClient) DownloadURL(ctx context.Context, node, storage, downloadURL, filename string) (string, error) {
-	m.record("DownloadURL", node, storage, downloadURL, filename)
-	return m.DownloadURLUPID, m.DownloadURLErr
 }
 
 // HasCall returns true if the mock received a call with the given method name.

@@ -127,10 +127,17 @@ func findVMByMachineID(ctx context.Context, opts options.Options) (int, error) {
 	}
 
 	expectedName := "devpod-" + opts.MachineID
+	best := 0
 	for _, r := range resources {
-		if r.Type == "qemu" && r.Name == expectedName && r.Node == opts.Node {
-			return r.VMID, nil
+		if r.Type != "qemu" || r.Name != expectedName || r.Node != opts.Node {
+			continue
+		}
+		if best == 0 || r.Status == "running" {
+			best = r.VMID
 		}
 	}
-	return 0, fmt.Errorf("VM not found: %s", expectedName)
+	if best == 0 {
+		return 0, fmt.Errorf("VM not found: %s", expectedName)
+	}
+	return best, nil
 }

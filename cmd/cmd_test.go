@@ -71,7 +71,7 @@ func TestStatusCmd_StateMapping(t *testing.T) {
 func TestFindTemplateID(t *testing.T) {
 	mock := &proxmox.MockClient{
 		Resources: []proxmox.Resource{
-			{Type: "qemu", VMID: 9000, Name: "devpod-template", Node: "pve1", Template: true},
+			{Type: "qemu", VMID: 9000, Name: "devpod-template", Node: "pve1", Template: 1},
 			{Type: "qemu", VMID: 100, Name: "devpod-ws1", Node: "pve1"},
 		},
 	}
@@ -88,7 +88,7 @@ func TestFindTemplateID(t *testing.T) {
 func TestFindTemplateID_NotFound(t *testing.T) {
 	mock := &proxmox.MockClient{
 		Resources: []proxmox.Resource{
-			{Type: "qemu", VMID: 100, Name: "other-template", Node: "pve1", Template: true},
+			{Type: "qemu", VMID: 100, Name: "other-template", Node: "pve1", Template: 1},
 		},
 	}
 
@@ -116,74 +116,6 @@ func TestIsVMIDConflict(t *testing.T) {
 				t.Errorf("isVMIDConflict('%s') = %v, want %v", tt.errMsg, result, tt.expected)
 			}
 		})
-	}
-}
-
-func TestSetup_TemplateAlreadyExists(t *testing.T) {
-	mock := &proxmox.MockClient{
-		Version: &proxmox.VersionResponse{Version: "7.4", Release: "7"},
-		StoragePools: []proxmox.Storage{
-			{Storage: "local-lvm", Type: "lvmthin"},
-		},
-		Networks: []proxmox.Network{
-			{Iface: "vmbr0", Type: "bridge"},
-		},
-		Resources: []proxmox.Resource{
-			{Type: "qemu", VMID: 9000, Name: "devpod-template", Node: "pve1", Template: true},
-		},
-	}
-
-	exists, err := templateAlreadyExists(context.Background(), mock, "pve1", "devpod-template")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !exists {
-		t.Error("expected template to exist")
-	}
-}
-
-func TestSetup_VerifyStorageMissing(t *testing.T) {
-	mock := &proxmox.MockClient{
-		Version:      &proxmox.VersionResponse{Version: "7.4", Release: "7"},
-		StoragePools: []proxmox.Storage{},
-	}
-
-	_, err := mock.GetNodeStorage(context.Background(), "pve1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Simulate the setup check logic
-	storages, _ := mock.GetNodeStorage(context.Background(), "pve1")
-	found := false
-	for _, s := range storages {
-		if s.Storage == "local-lvm" {
-			found = true
-			break
-		}
-	}
-	if found {
-		t.Error("expected storage not found")
-	}
-}
-
-func TestSetup_VerifyNetworkMissing(t *testing.T) {
-	mock := &proxmox.MockClient{
-		Networks: []proxmox.Network{
-			{Iface: "vmbr1", Type: "bridge"},
-		},
-	}
-
-	networks, _ := mock.GetNodeNetworks(context.Background(), "pve1")
-	found := false
-	for _, n := range networks {
-		if n.Iface == "vmbr0" {
-			found = true
-			break
-		}
-	}
-	if found {
-		t.Error("expected network bridge not found")
 	}
 }
 
@@ -326,3 +258,4 @@ func TestMockClient_RecordsAllCalls(t *testing.T) {
 		t.Errorf("expected 1 GetVersion call, got %d", mock.CallCount("GetVersion"))
 	}
 }
+

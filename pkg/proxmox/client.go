@@ -149,36 +149,6 @@ func (c *HTTPClient) GetClusterResources(ctx context.Context) ([]Resource, error
 	return resp.Data, nil
 }
 
-// GetNodeStorage lists storage pools on a node.
-func (c *HTTPClient) GetNodeStorage(ctx context.Context, node string) ([]Storage, error) {
-	data, err := c.do(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/storage", node), nil)
-	if err != nil {
-		return nil, err
-	}
-	var resp struct {
-		Data []Storage `json:"data"`
-	}
-	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("unmarshaling node storage: %w", err)
-	}
-	return resp.Data, nil
-}
-
-// GetNodeNetworks lists network interfaces on a node.
-func (c *HTTPClient) GetNodeNetworks(ctx context.Context, node string) ([]Network, error) {
-	data, err := c.do(ctx, http.MethodGet, fmt.Sprintf("/nodes/%s/network", node), nil)
-	if err != nil {
-		return nil, err
-	}
-	var resp struct {
-		Data []Network `json:"data"`
-	}
-	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("unmarshaling node networks: %w", err)
-	}
-	return resp.Data, nil
-}
-
 // CloneVM clones a template VM to a new VM.
 func (c *HTTPClient) CloneVM(ctx context.Context, node string, templateID int, req CloneRequest) (string, error) {
 	path := fmt.Sprintf("/nodes/%s/qemu/%d/clone", node, templateID)
@@ -263,7 +233,7 @@ func (c *HTTPClient) ResizeDisk(ctx context.Context, node string, vmid int, disk
 	params := url.Values{}
 	params.Set("disk", disk)
 	params.Set("size", size)
-	_, err := c.do(ctx, http.MethodPost, path, params)
+	_, err := c.do(ctx, http.MethodPut, path, params)
 	return err
 }
 
@@ -377,50 +347,3 @@ func (c *HTTPClient) WaitForTask(ctx context.Context, node, upid string, timeout
 	}
 }
 
-// CreateVM creates a new VM from scratch (used by setup).
-func (c *HTTPClient) CreateVM(ctx context.Context, node string, req CreateVMRequest) (string, error) {
-	path := fmt.Sprintf("/nodes/%s/qemu", node)
-	params := url.Values{}
-	params.Set("vmid", strconv.Itoa(req.VMID))
-	if req.Name != "" {
-		params.Set("name", req.Name)
-	}
-	if req.Memory > 0 {
-		params.Set("memory", strconv.Itoa(req.Memory))
-	}
-	if req.Cores > 0 {
-		params.Set("cores", strconv.Itoa(req.Cores))
-	}
-	if req.OSType != "" {
-		params.Set("ostype", req.OSType)
-	}
-	data, err := c.do(ctx, http.MethodPost, path, params)
-	if err != nil {
-		return "", err
-	}
-	return c.unmarshalTask(data)
-}
-
-// ConvertToTemplate converts a VM to a template.
-func (c *HTTPClient) ConvertToTemplate(ctx context.Context, node string, vmid int) (string, error) {
-	path := fmt.Sprintf("/nodes/%s/qemu/%d/template", node, vmid)
-	data, err := c.do(ctx, http.MethodPost, path, nil)
-	if err != nil {
-		return "", err
-	}
-	return c.unmarshalTask(data)
-}
-
-// DownloadURL downloads a file to Proxmox storage (server-side).
-func (c *HTTPClient) DownloadURL(ctx context.Context, node, storage, downloadURL, filename string) (string, error) {
-	path := fmt.Sprintf("/nodes/%s/storage/%s/download-url", node, storage)
-	params := url.Values{}
-	params.Set("url", downloadURL)
-	params.Set("filename", filename)
-	params.Set("content", "import")
-	data, err := c.do(ctx, http.MethodPost, path, params)
-	if err != nil {
-		return "", err
-	}
-	return c.unmarshalTask(data)
-}

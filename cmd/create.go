@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/iamveen/devpod-proxmox-provider/pkg/options"
@@ -41,7 +42,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("reading SSH public key: %w", err)
 	}
-	sshKeys := url.QueryEscape(string(pubKey))
+	sshKeys := strings.ReplaceAll(url.QueryEscape(strings.TrimSpace(string(pubKey))), "+", "%20")
 
 	// Step 2: Find the template VMID
 	templateID, err := findTemplateID(ctx, client, opts.Node, opts.Template)
@@ -75,7 +76,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	if opts.DiskSize > templateDiskGB {
 		increase := opts.DiskSize - templateDiskGB
 		diskSize := fmt.Sprintf("+%dG", increase)
-		if err := client.ResizeDisk(ctx, opts.Node, vmid, "scsi0", diskSize); err != nil {
+		if err := client.ResizeDisk(ctx, opts.Node, vmid, "virtio0", diskSize); err != nil {
 			return fmt.Errorf("resizing disk: %w", err)
 		}
 	}
@@ -124,7 +125,7 @@ func tryClone(ctx context.Context, client proxmox.Client, opts options.Options, 
 		return err
 	}
 
-	// Configure cloud-init
+	// Configure cloud-init; clean up the clone if configuration fails
 	if err := client.ConfigureVM(ctx, opts.Node, vmid, proxmox.VMConfig{
 		Name:      vmName,
 		CIUser:    "devpod",
@@ -134,6 +135,9 @@ func tryClone(ctx context.Context, client proxmox.Client, opts options.Options, 
 		Cores:     opts.Cores,
 		Memory:    opts.Memory,
 	}); err != nil {
+		if upid, delErr := client.DeleteVM(ctx, opts.Node, vmid, true); delErr == nil {
+			_ = client.WaitForTask(ctx, opts.Node, upid, 2*time.Minute)
+		}
 		return err
 	}
 	return nil
@@ -163,7 +167,7 @@ func findTemplateID(ctx context.Context, client proxmox.Client, node, template s
 		return 0, err
 	}
 	for _, r := range resources {
-		if r.Type == "qemu" && r.Node == node && r.Template && r.Name == template {
+		if r.Type == "qemu" && r.Node == node && r.Template != 0 && r.Name == template {
 			return r.VMID, nil
 		}
 	}

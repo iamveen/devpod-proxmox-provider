@@ -103,7 +103,6 @@ func TestMockClient_CallRecording(t *testing.T) {
 
 	_, _ = mock.GetVersion(context.Background())
 	_, _ = mock.GetClusterResources(context.Background())
-	_, _ = mock.GetNodeStorage(context.Background(), "pve1")
 
 	if !mock.HasCall("GetVersion") {
 		t.Error("expected HasCall(GetVersion) to be true")
