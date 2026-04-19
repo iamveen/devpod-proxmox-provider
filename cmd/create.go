@@ -2,7 +2,12 @@ package cmd
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net/url"
 	"os"
@@ -12,6 +17,7 @@ import (
 	"github.com/iamveen/devpod-proxmox-provider/pkg/options"
 	"github.com/iamveen/devpod-proxmox-provider/pkg/proxmox"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh"
 )
 
 var createCmd = &cobra.Command{
@@ -36,9 +42,13 @@ func runCreate(cmd *cobra.Command, args []string) error {
 
 	client := proxmox.NewHTTPClient(opts.Host, opts.Port, opts.Token)
 
-	// Step 1: Read the SSH public key from the machine folder
-	ipKeyPath := fmt.Sprintf("%s/id_ed25519.pub", opts.MachineFolder)
-	pubKey, err := os.ReadFile(ipKeyPath)
+	// Step 1: Ensure SSH keypair exists in the machine folder, generating it if needed
+	privKeyPath := fmt.Sprintf("%s/id_ed25519", opts.MachineFolder)
+	pubKeyPath := fmt.Sprintf("%s/id_ed25519.pub", opts.MachineFolder)
+	if err := ensureSSHKeypair(privKeyPath, pubKeyPath); err != nil {
+		return fmt.Errorf("generating SSH keypair: %w", err)
+	}
+	pubKey, err := os.ReadFile(pubKeyPath)
 	if err != nil {
 		return fmt.Errorf("reading SSH public key: %w", err)
 	}
@@ -172,4 +182,35 @@ func findTemplateID(ctx context.Context, client proxmox.Client, node, template s
 		}
 	}
 	return 0, fmt.Errorf("template '%s' not found on node '%s'", template, node)
+}
+
+// ensureSSHKeypair generates an ECDSA P-256 keypair at the given paths if they don't already exist.
+func ensureSSHKeypair(privPath, pubPath string) error {
+	if _, err := os.Stat(pubPath); err == nil {
+		return nil
+	}
+	if err := os.MkdirAll(strings.TrimSuffix(privPath, "/id_ed25519"), 0700); err != nil {
+		return err
+	}
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return err
+	}
+	privDER, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return err
+	}
+	privFile, err := os.OpenFile(privPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer privFile.Close()
+	if err := pem.Encode(privFile, &pem.Block{Type: "EC PRIVATE KEY", Bytes: privDER}); err != nil {
+		return err
+	}
+	pub, err := ssh.NewPublicKey(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(pubPath, ssh.MarshalAuthorizedKey(pub), 0644)
 }
