@@ -81,19 +81,19 @@ binaries:
   PROXMOX_PROVIDER:
     - os: linux
       arch: amd64
-      url: __LINUX_AMD64_URL__
+      path: __LINUX_AMD64_URL__
       checksum: __LINUX_AMD64_SHA__
     - os: linux
       arch: arm64
-      url: __LINUX_ARM64_URL__
+      path: __LINUX_ARM64_URL__
       checksum: __LINUX_ARM64_SHA__
     - os: darwin
       arch: amd64
-      url: __DARWIN_AMD64_URL__
+      path: __DARWIN_AMD64_URL__
       checksum: __DARWIN_AMD64_SHA__
     - os: darwin
       arch: arm64
-      url: __DARWIN_ARM64_URL__
+      path: __DARWIN_ARM64_URL__
       checksum: __DARWIN_ARM64_SHA__
 exec:
   init: ${PROXMOX_PROVIDER} init
