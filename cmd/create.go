@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
+	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -184,31 +182,29 @@ func findTemplateID(ctx context.Context, client proxmox.Client, node, template s
 	return 0, fmt.Errorf("template '%s' not found on node '%s'", template, node)
 }
 
-// ensureSSHKeypair generates an ECDSA P-256 keypair at the given paths if they don't already exist.
+// ensureSSHKeypair generates an ed25519 keypair in OpenSSH format if the files don't already exist.
 func ensureSSHKeypair(privPath, pubPath string) error {
 	if _, err := os.Stat(pubPath); err == nil {
 		return nil
 	}
-	if err := os.MkdirAll(strings.TrimSuffix(privPath, "/id_ed25519"), 0700); err != nil {
-		return err
+	dir := privPath[:strings.LastIndex(privPath, "/")]
+	if dir != "" {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return err
+		}
 	}
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	pubRaw, privRaw, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
 	}
-	privDER, err := x509.MarshalECPrivateKey(key)
+	privPEM, err := ssh.MarshalPrivateKey(privRaw, "")
 	if err != nil {
 		return err
 	}
-	privFile, err := os.OpenFile(privPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
+	if err := os.WriteFile(privPath, pem.EncodeToMemory(privPEM), 0600); err != nil {
 		return err
 	}
-	defer privFile.Close()
-	if err := pem.Encode(privFile, &pem.Block{Type: "EC PRIVATE KEY", Bytes: privDER}); err != nil {
-		return err
-	}
-	pub, err := ssh.NewPublicKey(&key.PublicKey)
+	pub, err := ssh.NewPublicKey(pubRaw)
 	if err != nil {
 		return err
 	}
