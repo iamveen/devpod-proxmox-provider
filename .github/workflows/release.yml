@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64"
+          for platform in $PLATFORMS; do
+            OS="${platform%/*}"
+            ARCH="${platform#*/}"
+            OUTPUT="dist/proxmox-provider-${OS}-${ARCH}"
+            GOOS=$OS GOARCH=$ARCH CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/iamveen/devpod-proxmox-provider/cmd.versionStr=${GITHUB_REF_NAME}" -o "$OUTPUT" .
+            sha256sum "$OUTPUT" | awk '{print $1}' > "${OUTPUT}.sha256"
+          done
+
+      - name: Generate provider.yaml
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          REPO="https://github.com/${{ github.repository }}"
+
+          LINUX_AMD64_URL="${REPO}/releases/download/${VERSION}/proxmox-provider-linux-amd64"
+          LINUX_ARM64_URL="${REPO}/releases/download/${VERSION}/proxmox-provider-linux-arm64"
+          DARWIN_AMD64_URL="${REPO}/releases/download/${VERSION}/proxmox-provider-darwin-amd64"
+          DARWIN_ARM64_URL="${REPO}/releases/download/${VERSION}/proxmox-provider-darwin-arm64"
+
+          LINUX_AMD64_SHA=$(cat dist/proxmox-provider-linux-amd64.sha256)
+          LINUX_ARM64_SHA=$(cat dist/proxmox-provider-linux-arm64.sha256)
+          DARWIN_AMD64_SHA=$(cat dist/proxmox-provider-darwin-amd64.sha256)
+          DARWIN_ARM64_SHA=$(cat dist/proxmox-provider-darwin-arm64.sha256)
+
+          sed \
+            -e "s|__VERSION__|${VERSION}|g" \
+            -e "s|__LINUX_AMD64_URL__|${LINUX_AMD64_URL}|g" \
+            -e "s|__LINUX_ARM64_URL__|${LINUX_ARM64_URL}|g" \
+            -e "s|__DARWIN_AMD64_URL__|${DARWIN_AMD64_URL}|g" \
+            -e "s|__DARWIN_ARM64_URL__|${DARWIN_ARM64_URL}|g" \
+            -e "s|__LINUX_AMD64_SHA__|${LINUX_AMD64_SHA}|g" \
+            -e "s|__LINUX_ARM64_SHA__|${LINUX_ARM64_SHA}|g" \
+            -e "s|__DARWIN_AMD64_SHA__|${DARWIN_AMD64_SHA}|g" \
+            -e "s|__DARWIN_ARM64_SHA__|${DARWIN_ARM64_SHA}|g" \
+            provider.yaml.tmpl > provider.yaml
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            dist/proxmox-provider-linux-amd64 \
+            dist/proxmox-provider-linux-arm64 \
+            dist/proxmox-provider-darwin-amd64 \
+            dist/proxmox-provider-darwin-arm64 \
+            provider.yaml
