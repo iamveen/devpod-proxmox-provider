@@ -3,3 +3,6 @@ provider.yaml
 
 # Build output
 dist/proxmox-provider
+
+# Local dev environment (contains secrets)
+mise.local.toml
