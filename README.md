@@ -15,10 +15,14 @@ Each machine gets a dedicated VM cloned from a cloud-init template. DevPod insta
 
 ### 1. Prepare Proxmox
 
-Run the setup script once on your Proxmox host. It creates a dedicated service account, API token, and a reusable cloud-init VM template.
+Run the setup script once on your Proxmox host. SSH in as root and execute:
 
 ```bash
-ssh user@your-proxmox-host 'sudo bash -s -- --node pve --storage local-lvm --bridge vmbr0' < scripts/setup.sh
+curl -fsSL https://raw.githubusercontent.com/iamveen/devpod-proxmox-provider/main/scripts/setup.sh \
+  | bash -s -- \
+      --node pve \
+      --storage local-lvm \
+      --bridge vmbr0
 ```
 
 The script prints the new API token at the end — save it.
